@@ -29,7 +29,7 @@ if [ ! -d "$HOME/depot_tools" ]; then
   git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
 fi
 export PATH="$HOME/depot_tools:$PATH"
-echo 'export PATH="$HOME/depot_tools:$PATH"' >> ~/.bashrc
+echo "export PATH=\"\$HOME/depot_tools:\$PATH\"" >> ~/.bashrc
 
 echo "===== [3/6] 拉取 Chromium 源码 ====="
 mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
@@ -155,7 +155,7 @@ ls -lh "$BUILD_DIR/src/$OUT_DIR/chrome"
 ARTIFACT="chromium-patched-$CHROMIUM_VERSION.tar.gz"
 echo ">> 打包产物..."
 tar -czf "$HOME/$ARTIFACT" -C "$BUILD_DIR/src/$OUT_DIR" chrome chrome_sandbox \
-  *.so* locales/ resources.pak chrome_100_percent.pak chrome_200_percent.pak \
+  ./*.so* locales/ resources.pak chrome_100_percent.pak chrome_200_percent.pak \
   icudtl.dat snapshot_blob.bin v8_context_snapshot.bin 2>/dev/null || true
 
 echo ""
