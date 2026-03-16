@@ -8,16 +8,21 @@ set -e
 # 推荐配置：32核+ CPU，64GB+ RAM，250GB+ SSD
 # =====================================================
 
-CHROMIUM_VERSION="146.0.7680.141"
-BUILD_DIR="$HOME/chromium"
-OUT_DIR="out/Default"
+CHROMIUM_VERSION="${CHROMIUM_VERSION:-146.0.7680.141}"
+BUILD_DIR="${BUILD_DIR:-$HOME/chromium}"
+OUT_DIR="${OUT_DIR:-out/Default}"
+SKIP_SYSTEM_DEPS="${SKIP_SYSTEM_DEPS:-0}"
 
 echo "===== [1/6] 安装系统依赖 ====="
-sudo apt-get update
-sudo apt-get install -y \
-  git curl python3 python3-pip \
-  lsb-release sudo \
-  build-essential
+if [ "$SKIP_SYSTEM_DEPS" = "1" ]; then
+  echo ">> SKIP_SYSTEM_DEPS=1，跳过系统依赖安装"
+else
+  sudo apt-get update
+  sudo apt-get install -y \
+    git curl python3 python3-pip \
+    lsb-release sudo \
+    build-essential
+fi
 
 echo "===== [2/6] 安装 depot_tools ====="
 if [ ! -d "$HOME/depot_tools" ]; then
@@ -157,6 +162,7 @@ echo ""
 echo "======================================"
 echo "构建完成！"
 echo "产物包：$HOME/$ARTIFACT"
+echo "ARTIFACT_PATH=$HOME/$ARTIFACT"
 echo ""
 echo "验证方法："
 echo "  ./chrome --no-sandbox http://your-test-page.html"

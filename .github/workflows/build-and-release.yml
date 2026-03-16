@@ -1,0 +1,105 @@
+name: Build and Release Chromium Patched
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Script
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Bash syntax check
+        run: bash -n build.sh
+
+      - name: Shellcheck
+        run: shellcheck build.sh
+
+  build:
+    name: Build Chromium (Self-hosted)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+    timeout-minutes: 720
+    needs: validate
+    outputs:
+      artifact_name: ${{ steps.resolve_artifact.outputs.artifact_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make build script executable
+        run: chmod +x build.sh
+
+      - name: Build
+        env:
+          SKIP_SYSTEM_DEPS: "1"
+        run: |
+          set -euo pipefail
+          ./build.sh | tee build.log
+
+      - name: Resolve artifact from build output
+        id: resolve_artifact
+        run: |
+          set -euo pipefail
+          artifact_path="$(sed -n 's/^ARTIFACT_PATH=//p' build.log | tail -n1)"
+          if [[ -z "$artifact_path" ]]; then
+            echo "ARTIFACT_PATH not found in build.log"
+            exit 1
+          fi
+          if [[ ! -f "$artifact_path" ]]; then
+            echo "Artifact file does not exist: $artifact_path"
+            exit 1
+          fi
+          echo "artifact_path=$artifact_path" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$(basename "$artifact_path")" >> "$GITHUB_OUTPUT"
+          ls -lh "$artifact_path"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.resolve_artifact.outputs.artifact_name }}
+          path: ${{ steps.resolve_artifact.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: dist
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*.tar.gz

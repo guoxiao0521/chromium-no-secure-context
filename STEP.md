@@ -87,6 +87,40 @@ autoninja -C out/Default chrome
 
 ---
 
+## GitHub Actions 使用方式
+
+仓库已提供工作流：`.github/workflows/build-and-release.yml`。
+
+### 触发方式
+
+- `pull_request` / `push`：只执行轻量校验（`bash -n` + `shellcheck`）
+- `workflow_dispatch`：手动触发完整构建
+- `push tag (v*)`：执行完整构建并自动发布到 GitHub Release
+
+### 自托管 Runner 前置要求
+
+- 标签包含：`self-hosted`、`linux`、`x64`
+- 推荐配置：32 核+ CPU、64GB+ RAM、250GB+ SSD
+- 建议保留稳定工作目录和缓存：
+  - `~/chromium`
+  - `~/depot_tools`
+- Runner 预装常用依赖时，可在 workflow 中设置 `SKIP_SYSTEM_DEPS=1` 跳过 `apt-get`
+
+### 发布示例（tag 触发）
+
+```bash
+git tag v146.0.7680.141-1
+git push origin v146.0.7680.141-1
+```
+
+构建成功后会自动在对应 tag 的 Release 中上传 `chromium-patched-*.tar.gz`。
+
+### 手动触发示例
+
+在 GitHub 页面进入 `Actions -> Build and Release Chromium Patched -> Run workflow`，即可手动触发完整构建。
+
+---
+
 ## 参考链接
 
 | 资源 | 地址 |
