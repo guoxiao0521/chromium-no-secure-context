@@ -17,7 +17,6 @@
 ## 仓库结构
 
 - `build.sh`：跨平台 Bash 构建脚本（Linux / Windows Git Bash / MSYS2）
-- `build.ps1`：Windows 入口脚本（支持 Windows 原生与 WSL Linux 构建）
 - `STEP.md`：中文详细步骤说明
 - `test/`：HTTP 测试页面与本地静态服务脚本
 - `.github/workflows/build-and-release.yml`：CI 与发布流程
