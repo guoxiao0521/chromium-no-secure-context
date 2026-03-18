@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTP 能力测试 - VideoDecoder / SharedArrayBuffer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ok: #1f8f3a;
+      --fail: #d93025;
+      --warn: #f9ab00;
+      --card: rgba(127, 127, 127, 0.12);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      padding: 24px;
+      max-width: 900px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .status {
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .ok {
+      color: var(--ok);
+    }
+    .fail {
+      color: var(--fail);
+    }
+    .warn {
+      color: var(--warn);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>HTTP 能力测试页</h1>
+  <div class="card">
+    <div><strong>当前地址：</strong><code id="current-url"></code></div>
+    <div><strong>协议：</strong><code id="protocol"></code></div>
+    <div><strong>isSecureContext：</strong><code id="secure-context"></code></div>
+    <div><strong>crossOriginIsolated：</strong><code id="cross-origin-isolated"></code></div>
+  </div>
+
+  <div class="card">
+    <div id="video-title" class="status">VideoDecoder：检测中...</div>
+    <ul id="video-details"></ul>
+  </div>
+
+  <div class="card">
+    <div id="sab-title" class="status">SharedArrayBuffer：检测中...</div>
+    <ul id="sab-details"></ul>
+  </div>
+
+  <button id="rerun-btn" type="button">重新检测</button>
+
+  <script>
+    function setText(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    function clearList(id) {
+      const list = document.getElementById(id);
+      list.innerHTML = "";
+      return list;
+    }
+
+    function addListItem(list, text, level = "ok") {
+      const item = document.createElement("li");
+      item.textContent = text;
+      item.className = level;
+      list.appendChild(item);
+    }
+
+    function setResult(titleId, name, ok, warning = false) {
+      const el = document.getElementById(titleId);
+      const label = ok ? "通过" : warning ? "部分通过" : "失败";
+      const cls = ok ? "ok" : warning ? "warn" : "fail";
+      el.className = `status ${cls}`;
+      el.textContent = `${name}：${label}`;
+    }
+
+    async function testVideoDecoder() {
+      const details = clearList("video-details");
+
+      if (!("VideoDecoder" in window)) {
+        addListItem(details, "window.VideoDecoder 不存在", "fail");
+        setResult("video-title", "VideoDecoder", false);
+        return;
+      }
+
+      addListItem(details, "window.VideoDecoder 已存在", "ok");
+      const decoder = new VideoDecoder({
+        output() {},
+        error(err) {
+          addListItem(details, `解码器错误回调: ${String(err)}`, "warn");
+        }
+      });
+      addListItem(details, "new VideoDecoder(...) 成功", "ok");
+
+      let config;
+      try {
+        const probeConfig = { codec: "vp8", codedWidth: 16, codedHeight: 16 };
+        const support = await VideoDecoder.isConfigSupported(probeConfig);
+        if (support.supported) {
+          config = support.config;
+          addListItem(details, "isConfigSupported(vp8) = true", "ok");
+        } else {
+          addListItem(details, "isConfigSupported(vp8) = false", "warn");
+        }
+      } catch (err) {
+        addListItem(details, `isConfigSupported 调用异常: ${String(err)}`, "warn");
+      }
+
+      let configureSuccess = false;
+      if (config) {
+        try {
+          decoder.configure(config);
+          configureSuccess = true;
+          addListItem(details, "decoder.configure(...) 成功", "ok");
+        } catch (err) {
+          addListItem(details, `decoder.configure(...) 异常: ${String(err)}`, "warn");
+        }
+      } else {
+        addListItem(details, "未执行 configure（未获得可用配置）", "warn");
+      }
+
+      decoder.close();
+      addListItem(details, "decoder.close() 成功", "ok");
+
+      if (configureSuccess) {
+        setResult("video-title", "VideoDecoder", true);
+      } else {
+        setResult("video-title", "VideoDecoder", false, true);
+      }
+    }
+
+    function createWorkerVerifier() {
+      const workerCode = `
+        self.onmessage = event => {
+          const sharedBuffer = event.data;
+          const view = new Int32Array(sharedBuffer);
+          const before = Atomics.load(view, 0);
+          Atomics.store(view, 0, before + 1);
+          const after = Atomics.load(view, 0);
+          self.postMessage({ before, after });
+        };
+      `;
+      const blob = new Blob([workerCode], { type: "application/javascript" });
+      const workerUrl = URL.createObjectURL(blob);
+      return { worker: new Worker(workerUrl), workerUrl };
+    }
+
+    async function testSharedArrayBuffer() {
+      const details = clearList("sab-details");
+
+      if (typeof SharedArrayBuffer !== "function") {
+        addListItem(details, "SharedArrayBuffer 构造函数不存在", "fail");
+        setResult("sab-title", "SharedArrayBuffer", false);
+        return;
+      }
+
+      addListItem(details, "SharedArrayBuffer 构造函数存在", "ok");
+
+      let sharedBuffer;
+      try {
+        sharedBuffer = new SharedArrayBuffer(4);
+        addListItem(details, "new SharedArrayBuffer(4) 成功", "ok");
+      } catch (err) {
+        addListItem(details, `创建 SharedArrayBuffer 失败: ${String(err)}`, "fail");
+        setResult("sab-title", "SharedArrayBuffer", false);
+        return;
+      }
+
+      const view = new Int32Array(sharedBuffer);
+      Atomics.store(view, 0, 41);
+      const value = Atomics.load(view, 0);
+      addListItem(details, `Atomics.store/load 成功，当前值=${value}`, "ok");
+
+      let workerPass = false;
+      const { worker, workerUrl } = createWorkerVerifier();
+      try {
+        const result = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("Worker 响应超时")), 3000);
+          worker.onmessage = event => {
+            clearTimeout(timer);
+            resolve(event.data);
+          };
+          worker.onerror = event => {
+            clearTimeout(timer);
+            reject(event.error || new Error(event.message || "Worker 报错"));
+          };
+          worker.postMessage(sharedBuffer);
+        });
+        workerPass = true;
+        addListItem(details, `Worker 共享内存读写成功：${result.before} -> ${result.after}`, "ok");
+      } catch (err) {
+        addListItem(details, `Worker 校验失败: ${String(err)}`, "warn");
+      } finally {
+        worker.terminate();
+        URL.revokeObjectURL(workerUrl);
+      }
+
+      if (workerPass) {
+        setResult("sab-title", "SharedArrayBuffer", true);
+      } else {
+        setResult("sab-title", "SharedArrayBuffer", false, true);
+      }
+    }
+
+    async function runAll() {
+      setText("current-url", location.href);
+      setText("protocol", location.protocol);
+      setText("secure-context", String(window.isSecureContext));
+      setText("cross-origin-isolated", String(window.crossOriginIsolated));
+      await testVideoDecoder();
+      await testSharedArrayBuffer();
+    }
+
+    document.getElementById("rerun-btn").addEventListener("click", runAll);
+    runAll();
+  </script>
+</body>
+</html>

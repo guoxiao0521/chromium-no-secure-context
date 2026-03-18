@@ -87,6 +87,34 @@ autoninja -C out/Default chrome
 
 ---
 
+## 本地构建
+
+统一使用 `build.sh`（bash），自动检测操作系统（Linux / Windows Git Bash）。
+
+### Linux
+
+```bash
+./build.sh
+```
+
+### Windows（Git Bash / MSYS2）
+
+```bash
+bash ./build.sh
+```
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `CHROMIUM_VERSION` | `146.0.7680.152` | 目标 Chromium 版本 |
+| `BUILD_DIR` | `~/chromium` | 源码和构建目录 |
+| `OUT_DIR` | `out/Default` | 编译输出目录 |
+| `TARGET_OS` | 自动检测 | 可强制指定 `win` 或 `linux` |
+| `SKIP_SYSTEM_DEPS` | `0` | 设为 `1` 跳过系统依赖安装（Linux） |
+
+---
+
 ## GitHub Actions 使用方式
 
 仓库已提供工作流：`.github/workflows/build-and-release.yml`。
