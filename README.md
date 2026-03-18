@@ -23,9 +23,51 @@
 
 ## 环境要求
 
-- Linux 推荐 Ubuntu 22.04，建议 32 核+ CPU、64GB+ 内存、250GB+ SSD
-- Windows 需安装 Visual Studio Build Tools（或等价 VS 2022 组件）
-- 需要可用的 `git`、`python`/`python3`、`depot_tools` 相关命令（`fetch`、`gclient`、`gn`、`autoninja`）
+### 通用
+
+- 磁盘空间：至少 150GB（源码 ~30GB + 编译产物 ~100GB）
+- 内存：建议 32GB+；16GB 可用但需限制并行数（`-j 4`），否则编译时可能 OOM
+- CPU：建议 8 核+，核心数直接影响编译速度
+
+### Linux
+
+- 推荐 Ubuntu 22.04
+- 系统依赖由脚本自动安装（`apt-get`），或设置 `SKIP_SYSTEM_DEPS=1` 跳过
+
+### Windows
+
+需要手动安装以下依赖：
+
+1. **Git for Windows**（提供 Git Bash）
+   ```powershell
+   winget install Git.Git
+   ```
+
+2. **Python 3**（3.8+，注意不能是 Windows Store 的 stub 版本）
+   ```powershell
+   winget install Python.Python.3.12
+   ```
+   安装后确认 `python --version` 能正常输出版本号。
+
+3. **Visual Studio 2022 Build Tools**
+   ```powershell
+   winget install Microsoft.VisualStudio.2022.BuildTools
+   ```
+   安装后打开 **Visual Studio Installer**，修改 Build Tools 2022，勾选：
+   - **"使用 C++ 的桌面开发"** 工作负载（含推荐组件）
+   - 单个组件中勾选 **C++ ATL v143 生成工具 (x86 和 x64)**
+
+4. **Windows 10/11 SDK**（含调试工具）
+   ```powershell
+   winget install Microsoft.WindowsSDK.10.0.26100 --override "/features OptionId.WindowsDesktopDebuggers /ceip off /q" --force
+   ```
+
+5. **Node.js**（仅运行测试页面时需要）
+   ```powershell
+   winget install OpenJS.NodeJS.LTS
+   ```
+
+> `depot_tools`（含 `fetch`、`gclient`、`gn`、`autoninja`）由 `build.sh` 自动安装，无需手动处理。
 
 ## 快速开始
 
