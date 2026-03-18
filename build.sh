@@ -335,8 +335,11 @@ patch_cross_origin "third_party/blink/renderer/modules/service_worker/service_wo
 step "Configure and build ($TARGET_OS)"
 mkdir -p "$OUT_DIR"
 
+# USE_OFFICIAL_OPT=1 to enable ThinLTO + PGO (requires 32GB+ RAM)
+USE_OFFICIAL_OPT="${USE_OFFICIAL_OPT:-0}"
+
 if [ "$TARGET_OS" = "win" ]; then
-  cat > "$OUT_DIR/args.gn" <<'EOF'
+  cat > "$OUT_DIR/args.gn" <<EOF
 is_debug = false
 target_os = "win"
 target_cpu = "x64"
@@ -346,10 +349,12 @@ blink_symbol_level = 0
 v8_symbol_level = 0
 exclude_unwind_tables = true
 enable_iterator_debugging = false
-use_thin_lto = false
+use_thin_lto = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "true" || echo "false")
+is_official_build = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "true" || echo "false")
+chrome_pgo_phase = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "2" || echo "0")
 EOF
 else
-  cat > "$OUT_DIR/args.gn" <<'EOF'
+  cat > "$OUT_DIR/args.gn" <<EOF
 is_debug = false
 target_cpu = "x64"
 is_component_build = false
@@ -357,7 +362,9 @@ symbol_level = 0
 blink_symbol_level = 0
 v8_symbol_level = 0
 exclude_unwind_tables = true
-use_thin_lto = false
+use_thin_lto = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "true" || echo "false")
+is_official_build = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "true" || echo "false")
+chrome_pgo_phase = $([ "$USE_OFFICIAL_OPT" = "1" ] && echo "2" || echo "0")
 EOF
 fi
 

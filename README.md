@@ -92,6 +92,7 @@ bash ./build.sh
 | `OUT_DIR` | `out/Default` | GN 输出目录 |
 | `TARGET_OS` | 自动检测 | 可强制指定 `win` 或 `linux` |
 | `SKIP_SYSTEM_DEPS` | `0` | Linux 下设为 `1` 可跳过系统依赖安装 |
+| `USE_OFFICIAL_OPT` | `0` | 设为 `1` 启用 ThinLTO + PGO 官方级优化（需 32GB+ 内存） |
 
 示例：
 
